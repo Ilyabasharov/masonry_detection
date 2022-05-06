@@ -1,6 +1,6 @@
 numpy
 scipy
-ellipse
+lsq-ellipse
 plantcv
 skimage
 matplotlib

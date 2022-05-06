@@ -8,7 +8,7 @@ You can use [venv](https://docs.python.org/3/tutorial/venv.html) to install libr
 ### Install requirements
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ### Download weights
