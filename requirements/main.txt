@@ -1,0 +1,2 @@
+-r mask.txt
+-r net.txt

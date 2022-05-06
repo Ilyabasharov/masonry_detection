@@ -1,0 +1,9 @@
+numpy
+scipy
+ellipse
+plantcv
+skimage
+matplotlib
+deep-pipe
+PIL
+opencv-python
