@@ -2,8 +2,8 @@ numpy
 scipy
 lsq-ellipse
 plantcv
-skimage
+scikit-image
 matplotlib
 deep-pipe
-PIL
-opencv-python
+Pillow
+opencv-python==4.1.2.30

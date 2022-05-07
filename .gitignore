@@ -6,9 +6,12 @@ __pycache__/
 # Mac extensions
 **/.DS_Store
 
-# PKL files
+# tmp files
 **/.pkl
+**/.png
 
+# data dir
+data/
 
 # jupyter notebook
 **/.ipynb_checkpoints

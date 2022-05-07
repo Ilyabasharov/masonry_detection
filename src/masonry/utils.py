@@ -113,87 +113,6 @@ def contour_to_mask(
     mask[tuple(contour.T)] = True
 
     return mask.T
-
-        
-def slice3d_segments(
-    image: np.array,
-    *skeletons: List[SliceSkeleton],
-    alpha,
-    pix_to_real: tuple,
-    treshold_real: float,
-    **kwargs,
-) -> np.ndarray:
-
-    def single_component_callback(
-        axes: plt.axes,
-        *,
-        idx,
-        skeleton: List[SliceSkeleton],
-    ):
-        def _plot_overlay_mask(mask, ax):
-            grey_mask = mask.sum(axis=-1)
-            alpha_map = np.zeros(grey_mask.shape).astype(float)
-            alpha_map[grey_mask != 0] = np.uint8(255 * alpha)
-            rgba_mask = np.concatenate([mask, alpha_map[..., None]], axis=-1).astype(np.uint8)
-            ax.imshow(rgba_mask)
-
-        slice_skeleton = skeleton[idx]
-        if slice_skeleton is None:
-            return
-
-        segments = slice_skeleton.segments
-        if len(segments) == 0:
-            return
-
-        colors = cycle(['c', 'm', 'y', 'g'])
-        contour_color = 'red'
-        chord_color = 'black'
-
-        def to_valid_rgb(color: str):
-            return (255 * np.array(to_rgb(color))).astype(np.uint8)[None, None, ...]
-
-        for axis in axes:
-            for seg in segments:
-                segment_mask = seg.mask.astype(np.uint8)
-                contour = np.flip(seg.contour, -1)
-                contour = dilation(contour_to_mask(segment_mask.shape, contour))
-                # add channels
-                contour = np.stack(3 * [contour], axis=-1).astype(np.uint8)
-                contour *= to_valid_rgb(contour_color)
-                # add channels
-                segment_mask = np.stack(3 * [segment_mask], axis=-1)
-                segment_mask *= to_valid_rgb(next(colors))
-                _plot_overlay_mask(segment_mask, axis)
-                _plot_overlay_mask(contour, axis)
-
-                for chord in seg.minor_chords:
-                    
-                    x_start, y_start = chord[0]
-                    x_end, y_end = chord[1]
-                    
-                    delta = np.sqrt(((x_end - x_start)*pix_to_real[1])**2 + ((y_end - y_start)*pix_to_real[0])**2)
-                    
-                    if delta < treshold_real:
-                        color='red'
-                    else:
-                        color='blue'
-                        
-                    plt.plot(
-                        (y_start, y_end),
-                        (x_start, x_end),
-                        color=color,
-                        linewidth=1,
-                    )
-
-    callbacks = []
-    for s in skeletons:
-        callbacks.append(partial(single_component_callback, skeleton=s))
-
-    def callback(*args, **kwargs):
-        for c in callbacks:
-            c(*args, **kwargs)
-
-    _slice_base([image], callback=callback, **kwargs)
     
 def get_morphological_transform(morph_type, kernel):
     if morph_type == 'dilation':
@@ -577,7 +496,7 @@ def fit_axial_segments(mask: np.ndarray, rtol=0.03, atol=5):
 
 def get_pix_dims_brick(
     mask: np.array,
-) -> Tuple[float]:
+) -> Tuple[float, float]:
 
     # Find contours
     contours, h = cv2.findContours(mask.astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -598,3 +517,43 @@ def get_pix_dims_brick(
             hs.append(h)
 
     return np.mean(ws), np.mean(hs)
+
+def plot_contours(
+    image: np.ndarray,
+    contours: List[SliceSkeleton],
+    pix_to_real: tuple,
+    treshold_real: float,
+) -> np.ndarray:
+
+    slice_skeleton = contours[0]
+    if slice_skeleton is None:
+        pass
+
+    segments = slice_skeleton.segments
+    if len(segments) == 0:
+        pass
+
+    for seg in segments:
+
+        for chord in seg.minor_chords:
+
+            x_start, y_start = chord[0]
+            x_end, y_end = chord[1]
+
+            delta = np.sqrt(((x_end - x_start)*pix_to_real[1])**2 + ((y_end - y_start)*pix_to_real[0])**2)
+
+            if delta < treshold_real:
+                color=(222, 0, 0)
+            else:
+                color=(0, 222, 0)
+
+            image = cv2.line(
+                image,
+                tuple(map(int, (y_start, x_start))),
+                tuple(map(int, (y_end, x_end))),
+                color=color,
+            )
+
+    return image
+
+    
