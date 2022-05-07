@@ -16,7 +16,7 @@ git lfs fetch && git lfs pull
 pip3 install -r requirements.txt
 ```
 
-### Download weights
+### Download a dataset
 
 ```bash
 cd scripts
