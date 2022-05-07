@@ -1,75 +1,27 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # coding: utf-8
 
 import os
 import cv2
+import click
 import tqdm
 import torch
-import click
-import numpy as np
 
 from segmentation import UNetInference
-from masonry import MasonryShapeEvaluation
 
 image_ext = ['jpg', 'jpeg', 'png', 'webp', ]
 video_ext = ['mp4', 'mov', 'avi', 'mkv', ]
 
-class MasonryDetection:
-
-    def __init__(
-        self,
-        brick_width: float,
-        brick_height: float,
-        threshold_shape: float,
-        device: str='cpu',
-    ) -> None:
-
-        self.shape = MasonryShapeEvaluation(
-            real_shape_brick=(brick_width, brick_height),
-            threshold_shape=threshold_shape,
-        )
-
-        self.net = UNetInference(
-            num_classes=2,
-            device=device,
-        )
-
-    def forward(
-        self,
-        image: np.ndarray,
-    ) -> np.ndarray:
-
-        mask = self.net.inference(image)
-        mask = (~mask.astype(bool)).astype(int)
-
-        image = self.shape.forward(
-            image=image,
-            mask=mask,
-        )
-
-        return image
-
-
 @click.command()
-@click.option(
-    '--brick_width',
-    default=250,
-    help='Brick width in millimeters.',
-)
-@click.option(
-    '--brick_height',
-    default=250,
-    help='Brick height in millimeters.',
-)
-@click.option(
-    '--threshold_shape',
-    default=10,
-    help='Threshold masonry shape in millimeters.',
-)
 @click.option(
     '--input_images_path',
     default='../data/PPKE-SZTAKI-MasonryBenchmark/train/images',
     help='Input images path.',
+)
+@click.option(
+    '--path_to_weights',
+    default='../weights/epoch=74-mean_iou=0.594.ckpt',
+    help='Path_to_model_weights',
 )
 @click.option(
     '--annotate',
@@ -83,13 +35,14 @@ class MasonryDetection:
     help='Where save annotated results.',
 )
 def main(
-    brick_width: float,
-    brick_height: float,
-    threshold_shape: float,
     input_images_path: str,
+    path_to_weights: str,
     annotate: bool,
     where_to_save: str,
 ) -> None:
+    
+    for path in (path_to_weights, input_images_path):
+        assert os.path.exists(path), f'{path} does not exist!'
 
     if annotate:
         os.makedirs(
@@ -97,8 +50,10 @@ def main(
             exist_ok=True,
         )
 
-    for path in (input_images_path, ):
-        assert os.path.exists(path), f'{path} does not exist!'
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+    else:
+        device = 'cpu'
 
     if input_images_path[input_images_path.rfind('.') + 1:].lower() in video_ext:
 
@@ -123,16 +78,15 @@ def main(
 
         raise NotImplementedError
 
-    if torch.cuda.is_available():
-        device = torch.cuda.current_device()
-    else:
-        device = 'cpu'
-
-    model = MasonryDetection(
-        brick_height=brick_height,
-        brick_width=brick_width,
-        threshold_shape=threshold_shape,
+    model = UNetInference(
+        num_classes=2,
         device=device,
+    )
+    model.load_state_dict(
+        torch.load(
+            f=path_to_weights,
+            map_location='cpu',
+        )['state_dict']
     )
 
     counter = 0
@@ -154,12 +108,12 @@ def main(
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        image = model.forward(frame)
+        mask = model.inference(frame)
 
         if annotate:
             cv2.imwrite(
                 filename=os.path.join(where_to_save, f'{counter}.png'),
-                img=image[..., ::-1],
+                img=mask,
             )
 
         counter += 1
